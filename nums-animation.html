@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nums iteration animation</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0f1117;
+      color: #e8eaed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .wrap {
+      width: min(960px, 96vw);
+      padding: 24px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+    p {
+      margin: 0 0 16px;
+      color: #9aa0a6;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    canvas {
+      width: 100%;
+      border: 1px solid #2a2f3a;
+      border-radius: 12px;
+      background: #161922;
+      display: block;
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #bdc1c6;
+      min-height: 20px;
+    }
+    .controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: #2b59ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #2a2f3a;
+    }
+    a.download {
+      display: inline-block;
+      margin-top: 12px;
+      color: #8ab4ff;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Remove duplicates — nums iteration</h1>
+    <p>
+      Mirrors your <code>reversestring.js</code> logic. Each frame shows
+      <span style="color:#ff6b6b">i</span>,
+      <span style="color:#51cf66">x</span>,
+      and the array after that step.
+    </p>
+    <canvas id="canvas" width="920" height="420"></canvas>
+    <div class="status" id="status">Preparing animation…</div>
+    <div class="controls">
+      <button id="playBtn">Replay</button>
+      <button id="recordBtn" class="secondary">Record &amp; download video</button>
+    </div>
+    <a class="download" id="downloadLink" hidden download="nums-iteration.webm">Download video</a>
+  </div>
+
+  <script>
+    const initial = [0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6];
+
+    function buildSteps() {
+      const steps = [];
+      const nums = initial.slice();
+      let x = 1;
+
+      steps.push({
+        nums: nums.slice(),
+        i: null,
+        x,
+        action: "Start: x = 1. Scan from i = 1.",
+        changed: [],
+      });
+
+      for (let i = 1; i < nums.length; i++) {
+        const compareTo = nums[x - 1];
+        const current = nums[i];
+        const keep = current > compareTo;
+        const changed = [];
+
+        if (keep) {
+          nums[x] = current;
+          changed.push(x);
+          x++;
+        }
+
+        steps.push({
+          nums: nums.slice(),
+          i,
+          x,
+          action: keep
+            ? `nums[${i}] = ${current} > nums[${x - 2}] = ${compareTo} → copy to index ${x - 1}, x = ${x}`
+            : `nums[${i}] = ${current} ≤ nums[${x - 1}] = ${compareTo} → skip`,
+          changed,
+        });
+      }
+
+      steps.push({
+        nums: nums.slice(),
+        i: null,
+        x,
+        action: `Done. Unique prefix length x = ${x}. Full array: [${nums.join(", ")}]`,
+        changed: [],
+        done: true,
+      });
+
+      return steps;
+    }
+
+    const steps = buildSteps();
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const downloadLink = document.getElementById("downloadLink");
+
+    const COLORS = {
+      bg: "#161922",
+      cell: "#222733",
+      cellBorder: "#3c4253",
+      text: "#e8eaed",
+      muted: "#9aa0a6",
+      i: "#ff6b6b",
+      x: "#51cf66",
+      changed: "#ffd43b",
+      unique: "#339af0",
+    };
+
+    function drawStep(step, frameIndex, totalFrames) {
+      const { nums, i, x, action, changed = [], done = false } = step;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.fillStyle = COLORS.bg;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = COLORS.text;
+      ctx.font = "600 18px ui-monospace, monospace";
+      ctx.fillText(`Step ${frameIndex + 1} / ${totalFrames}`, 24, 34);
+
+      ctx.fillStyle = COLORS.muted;
+      ctx.font = "14px ui-monospace, monospace";
+      ctx.fillText(action, 24, 62);
+
+      const n = nums.length;
+      const gap = 8;
+      const maxCellW = 52;
+      const cellW = Math.min(maxCellW, Math.floor((w - 48 - gap * (n - 1)) / n));
+      const cellH = 56;
+      const startX = 24;
+      const startY = 120;
+      const totalW = n * cellW + (n - 1) * gap;
+
+      ctx.fillStyle = COLORS.muted;
+      ctx.font = "12px ui-monospace, monospace";
+      ctx.fillText("array indices", startX, startY - 28);
+
+      for (let idx = 0; idx < n; idx++) {
+        const cx = startX + idx * (cellW + gap);
+        const cy = startY;
+
+        let fill = COLORS.cell;
+        let border = COLORS.cellBorder;
+        if (changed.includes(idx)) {
+          fill = "#3d3418";
+          border = COLORS.changed;
+        } else if (done && idx < x) {
+          fill = "#1c3148";
+          border = COLORS.unique;
+        }
+
+        if (idx === i) {
+          border = COLORS.i;
+        } else if (idx === x) {
+          border = COLORS.x;
+        }
+
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = idx === i || idx === x || changed.includes(idx) ? 3 : 1;
+        roundRect(ctx, cx, cy, cellW, cellH, 8, true, true);
+
+        ctx.fillStyle = COLORS.muted;
+        ctx.font = "11px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(String(idx), cx + cellW / 2, cy + 16);
+
+        ctx.fillStyle = COLORS.text;
+        ctx.font = "bold 18px ui-monospace, monospace";
+        ctx.fillText(String(nums[idx]), cx + cellW / 2, cy + 40);
+      }
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = COLORS.muted;
+      ctx.font = "13px ui-monospace, monospace";
+      ctx.fillText(`i = ${i ?? "—"}`, 24, startY + cellH + 36);
+      ctx.fillStyle = COLORS.i;
+      ctx.fillText("← current index", 90, startY + cellH + 36);
+
+      ctx.fillStyle = COLORS.muted;
+      ctx.fillText(`x = ${x}`, 24, startY + cellH + 62);
+      ctx.fillStyle = COLORS.x;
+      ctx.fillText("← next write position", 90, startY + cellH + 62);
+
+      if (done) {
+        ctx.fillStyle = COLORS.unique;
+        ctx.fillRect(startX, startY + cellH + 86, totalW, 18);
+        ctx.fillStyle = COLORS.text;
+        ctx.font = "12px ui-monospace, monospace";
+        ctx.fillText(`unique prefix [0 .. ${x - 1}]`, startX + 8, startY + cellH + 100);
+      }
+
+      ctx.fillStyle = COLORS.muted;
+      ctx.font = "12px ui-monospace, monospace";
+      ctx.fillText(`[${nums.join(", ")}]`, 24, h - 24);
+    }
+
+    function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    let animToken = 0;
+
+    async function playAnimation(onFrame) {
+      const token = ++animToken;
+      for (let s = 0; s < steps.length; s++) {
+        if (token !== animToken) return;
+        drawStep(steps[s], s, steps.length);
+        statusEl.textContent = steps[s].action;
+        if (onFrame) onFrame();
+        await sleep(steps[s].done ? 1800 : 1100);
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    document.getElementById("playBtn").addEventListener("click", () => {
+      downloadLink.hidden = true;
+      playAnimation();
+    });
+
+    document.getElementById("recordBtn").addEventListener("click", async () => {
+      statusEl.textContent = "Recording…";
+      downloadLink.hidden = true;
+
+      const stream = canvas.captureStream(30);
+      const recorder = new MediaRecorder(stream, { mimeType: getMimeType(), videoBitsPerSecond: 4_000_000 });
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.hidden = false;
+        downloadLink.textContent = `Download video (${(blob.size / 1024).toFixed(0)} KB)`;
+        statusEl.textContent = "Recording finished. Click the download link below.";
+      };
+
+      recorder.start();
+      await playAnimation();
+      await sleep(400);
+      recorder.stop();
+    });
+
+    function getMimeType() {
+      const types = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+      return types.find((t) => MediaRecorder.isTypeSupported(t)) || "video/webm";
+    }
+
+    playAnimation();
+  </script>
+</body>
+</html>
